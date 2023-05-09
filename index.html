@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>OpenStreetMap Notes</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Leaflet CSS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    />
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      #map {
+        width: 100%;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+
+    <script>
+      let map = L.map("map").setView([52.3851, 4.6306], 12);
+
+      let markers = {
+        red: "https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+        blue: "https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+        green:
+          "https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
+      };
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+        maxZoom: 18,
+      }).addTo(map);
+
+      function fetchNotes() {
+        let bounds = map.getBounds();
+        let bbox = bounds.toBBoxString();
+        map.eachLayer((layer) => {
+          if (layer instanceof L.Marker) {
+            if (!bounds.contains(layer.getLatLng())) {
+              map.removeLayer(layer);
+            }
+          }
+        });
+
+        fetch(`https://www.openstreetmap.org/api/0.6/notes.json?bbox=${bbox}`)
+          .then((response) => response.json())
+          .then((data) => {
+            data.features.forEach((feature) => {
+              if (feature.properties.status === "closed") {
+                return;
+              }
+              feature.data = feature.properties;
+
+              fetch(feature.properties.url)
+                .then((response) => response.json())
+                .then((data) => {
+                  let marker = L.marker(
+                    [
+                      feature.geometry.coordinates[1],
+                      feature.geometry.coordinates[0],
+                    ],
+                    {
+                      icon: L.icon({
+                        iconUrl: data.properties.comments[0].text
+                          .toLowerCase()
+                          .includes("future:")
+                          ? markers.green
+                          : markers.blue,
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41],
+                      }),
+                    }
+                  )
+                    .bindPopup(
+                      `<b>${data.properties.comments[0].text}</b><br><a href="https://www.openstreetmap.org/note/${data.properties.id}">View on OpenStreetMap</a>`
+                    )
+                    .addTo(map);
+                });
+            });
+          })
+          .catch((error) => console.error(error));
+      }
+
+      map.on("load", fetchNotes);
+      map.on("moveend zoomend", fetchNotes);
+    </script>
+  </body>
+</html>
