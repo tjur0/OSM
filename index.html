@@ -30,75 +30,99 @@
     <div id="map"></div>
 
     <script>
-      let map = L.map("map").setView([52.3851, 4.6306], 12);
+      let map = L.map('map').setView([52.3851, 4.6306], 12)
 
       let markers = {
-        red: "https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
-        blue: "https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+        red:
+          'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+        blue:
+          'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
         green:
-          "https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
-      };
+          'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+        orange:
+          'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
+        yellow:
+          'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png',
+        black:
+          'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-black.png',
+      }
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution:
           'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
         maxZoom: 18,
-      }).addTo(map);
+      }).addTo(map)
+
+      const colors = {
+        ONTWERP: markers.orange,
+        VOORBEREIDING: markers.yellow,
+        UITVOERING: markers.green,
+        FUTURE: markers.blue,
+      }
 
       function fetchNotes() {
-        let bounds = map.getBounds();
-        let bbox = bounds.toBBoxString();
+        let bounds = map.getBounds()
+        let bbox = bounds.toBBoxString()
         map.eachLayer((layer) => {
           if (layer instanceof L.Marker) {
             if (!bounds.contains(layer.getLatLng())) {
-              map.removeLayer(layer);
+              map.removeLayer(layer)
             }
           }
-        });
+        })
 
         fetch(`https://www.openstreetmap.org/api/0.6/notes.json?bbox=${bbox}`)
           .then((response) => response.json())
           .then((data) => {
             data.features.forEach((feature) => {
-              if (feature.properties.status === "closed") {
-                return;
+              if (feature.properties.status === 'closed') {
+                return
               }
-              feature.data = feature.properties;
 
-              fetch(feature.properties.url)
-                .then((response) => response.json())
-                .then((data) => {
-                  let marker = L.marker(
-                    [
-                      feature.geometry.coordinates[1],
-                      feature.geometry.coordinates[0],
-                    ],
-                    {
-                      icon: L.icon({
-                        iconUrl: data.properties.comments[0].text
-                          .toLowerCase()
-                          .includes("future:")
-                          ? markers.green
-                          : markers.blue,
-                        iconSize: [25, 41],
-                        iconAnchor: [12, 41],
-                        popupAnchor: [1, -34],
-                        shadowSize: [41, 41],
-                      }),
-                    }
-                  )
-                    .bindPopup(
-                      `<b>${data.properties.comments[0].text}</b><br><a href="https://www.openstreetmap.org/note/${data.properties.id}">View on OpenStreetMap</a>`
-                    )
-                    .addTo(map);
-                });
-            });
+              let colorFound = null
+
+              // get key value pair from colors
+              for (const [key, value] of Object.entries(colors)) {
+                if (
+                  feature.properties.comments[0].text
+                    .toLowerCase()
+                    .includes(key.toLowerCase())
+                ) {
+                  colorFound = value
+                  break
+                }
+              }
+
+              if (!colorFound) {
+                colorFound = markers.black
+              }
+
+              let marker = L.marker(
+                [
+                  feature.geometry.coordinates[1],
+                  feature.geometry.coordinates[0],
+                ],
+                {
+                  icon: L.icon({
+                    iconUrl: colorFound,
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41],
+                  }),
+                },
+              )
+                .bindPopup(
+                  `<b>${feature.properties.comments[0].text}</b><br><a href="https://www.openstreetmap.org/note/${feature.properties.id}">View on OpenStreetMap</a>`,
+                )
+                .addTo(map)
+            })
           })
-          .catch((error) => console.error(error));
+          .catch((error) => console.error(error))
       }
 
-      map.on("load", fetchNotes);
-      map.on("moveend zoomend", fetchNotes);
+      map.on('load', fetchNotes)
+      map.on('moveend zoomend', fetchNotes)
     </script>
   </body>
 </html>
